@@ -1,0 +1,161 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 20px;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+h1, h2 {
+    text-align: center;
+    color: #444;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#input-section, #output-section {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: #eee;
+    margin: 20px 0;
+}
+
+/* --- Input Section --- */
+.add-process-form, .algorithm-select-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap; /* Allow wrapping for smaller screens */
+}
+
+input[type="number"] {
+    width: 60px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+#simulate-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1em;
+    background-color: #28a745;
+}
+#simulate-btn:hover {
+    background-color: #218838;
+}
+
+/* Process List Display */
+#process-list {
+    margin-top: 15px;
+}
+.process-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f4f4f4;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+.process-item-delete {
+    cursor: pointer;
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* --- Output Section --- */
+#gantt-chart-container {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    min-height: 80px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#gantt-chart {
+    display: flex;
+    flex-direction: row;
+    min-height: 50px;
+}
+
+.gantt-block {
+    text-align: center;
+    border-left: 1px solid #555;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #333; /* Darker color for pastel */
+    font-weight: bold;
+    font-size: 0.9em;
+    height: 50px;
+}
+.gantt-block:last-child {
+    border-right: 1px solid #555;
+}
+
+#gantt-axis {
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    margin-top: -1px;
+}
+.gantt-time-mark {
+    position: absolute;
+    font-size: 0.8em;
+    transform: translateX(-50%); /* Center the label */
+}
+
+
+/* Table Styling */
+#results-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+}
+#results-table th, #results-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+}
+#results-table th {
+    background-color: #f2f2f2;
+}
+
+#average-metrics {
+    margin-top: 20px;
+    font-size: 1.1em;
+    font-weight: bold;
+    text-align: right;
+}

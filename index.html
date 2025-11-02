@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduling Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="Screenshot 2025-11-02 114652.png">
+</head>
+<body>
+    <h1>CPU Scheduling Simulator</h1>
+
+    <div class="container">
+        <section id="input-section">
+            <h2>1. Add Processes</h2>
+            <div id="process-list">
+                </div>
+            <div class="add-process-form">
+                <label for="arrival-time-input">Arrival Time:</label>
+                <input type="number" id="arrival-time-input" value="0" min="0">
+                <label for="burst-time-input">Burst Time:</label>
+                <input type="number" id="burst-time-input" value="5" min="1">
+                <label for="priority-input">Priority:</label>
+                <input type="number" id="priority-input" value="1" min="0">
+                <button id="add-process-btn">Add Process</button>
+            </div>
+
+            <hr>
+
+            <h2>2. Select Algorithm</h2>
+            <div class="algorithm-select-form">
+                <label for="algorithm-select">Choose Algorithm:</label>
+                <select id="algorithm-select">
+                    <option value="fcfs">First-Come, First-Served (FCFS)</option>
+                    <option value="sjf-nonpreemptive">Shortest Job First (SJF) (Non-Preemptive)</option>
+                    <option value="srtf-preemptive">Shortest Remaining Time First (SRTF) (Preemptive)</option>
+                    <option value="priority-nonpreemptive">Priority (Non-Preemptive)</option>
+                    <option value="priority-preemptive">Priority (Preemptive)</option>
+                    <option value="rr">Round Robin (RR)</option>
+                    <option value="priority-rr-nonpreemptive">Priority + RR (Non-Preemptive)</option>
+                    <option value="priority-rr-preemptive">Priority + RR (Preemptive)</option>
+                </select>
+                
+                <div id="rr-quantum-input" style="display:none;">
+                    <label for="time-quantum-input">Time Quantum:</label>
+                    <input type="number" id="time-quantum-input" value="2" min="1">
+                </div>
+            </div>
+
+            <hr>
+
+            <button id="simulate-btn">Run Simulation</button>
+        </section>
+
+        <section id="output-section">
+            <h2>Gantt Chart</h2>
+            <div id="gantt-chart-container">
+                <div id="gantt-chart">
+                    </div>
+                <div id="gantt-axis">
+                    </div>
+            </div>
+            
+            <h2>Results Table</h2>
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>Process</th>
+                        <th>Arrival (AT)</th>
+                        <th>Burst (BT)</th>
+                        <th>Priority</th>
+                        <th>Completion (CT)</th>
+                        <th>Waiting (WT)</th>
+                        <th>Turnaround (TAT)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+            
+            <div id="average-metrics">
+                </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
