@@ -6,25 +6,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const quantumInputDiv = document.getElementById('rr-quantum-input');
     const arrivalInput = document.getElementById('arrival-time-input');
     const burstInput = document.getElementById('burst-time-input');
-    const priorityInput = document.getElementById('priority-input'); // New
+    const priorityInput = document.getElementById('priority-input');
     const processListDiv = document.getElementById('process-list');
     
     const ganttChartDiv = document.getElementById('gantt-chart');
     const ganttAxisDiv = document.getElementById('gantt-axis');
     const resultsTableBody = document.querySelector('#results-table tbody');
     const avgMetricsDiv = document.getElementById('average-metrics');
+    const readyQueueLogContainer = document.getElementById('ready-queue-log-container');
 
     let processes = [];
-    let processCounter = 1;
-    const TIME_SCALE = 20; // 20px per unit of time
+    let readyQueueLog = [];
+    const TIME_SCALE = 30; // 30px per unit of time
 
     // --- Process Class ---
     class Process {
-        constructor(id, arrivalTime, burstTime, priority) { // Updated
+        constructor(id, arrivalTime, burstTime, priority) {
             this.id = id;
             this.arrivalTime = arrivalTime;
             this.originalBurstTime = burstTime;
-            this.priority = priority; // New
+            this.priority = priority;
             
             // Simulation-tracking properties
             this.remainingBurstTime = burstTime;
@@ -33,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.turnaroundTime = 0;
             this.isCompleted = false;
             this.startTime = -1; 
-            this.remainingQuantum = 0; // New
+            this.remainingQuantum = 0;
             this.color = getRandomColor();
         }
     }
@@ -47,33 +48,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function addProcess() {
         const arrival = parseInt(arrivalInput.value);
         const burst = parseInt(burstInput.value);
-        const priority = parseInt(priorityInput.value); // New
+        const priority = parseInt(priorityInput.value);
 
         if (isNaN(arrival) || isNaN(burst) || isNaN(priority) || burst <= 0 || arrival < 0 || priority < 0) {
             alert("Please enter valid Arrival (>= 0), Burst (> 0), and Priority (>= 0).");
             return;
         }
 
-        const newProcess = new Process(processCounter++, arrival, burst, priority); // Updated
+        // --- FIX: Determine the next ID based on the *current* max ID in the list ---
+        let nextId = 1;
+        if (processes.length > 0) {
+            // Find the highest ID currently in the processes array
+            const maxId = Math.max(...processes.map(p => p.id));
+            nextId = maxId + 1;
+        } else {
+            nextId = 1; // Start from 1 if the list is empty
+        }
+        
+        const newProcess = new Process(nextId, arrival, burst, priority);
+        // --- END FIX ---
+        
         processes.push(newProcess);
         
         renderProcessList();
         
         // Clear inputs for next entry
         burstInput.value = "5";
-        priorityInput.value = "1"; // New
+        priorityInput.value = "1";
         arrivalInput.value = (parseInt(arrivalInput.value) + 1).toString(); 
     }
     
     function renderProcessList() {
         processListDiv.innerHTML = "";
-        processes.sort((a, b) => a.id - b.id).forEach((p, index) => { // Sort by ID for consistent display
+        const sortedProcesses = [...processes].sort((a, b) => a.id - b.id); 
+        
+        sortedProcesses.forEach((p) => {
             const item = document.createElement('div');
             item.className = 'process-item';
-            // Find the original index in the 'processes' array before sorting for display
             const originalIndex = processes.findIndex(proc => proc.id === p.id);
             item.innerHTML = `
-                <span><strong>P${p.id}</strong>: AT = ${p.arrivalTime}, BT = ${p.originalBurstTime}, Pri = ${p.priority}</span>
+                <span style="color: ${p.color}; font-weight: 600;">P${p.id}</span>
+                <span class="text-gray-300">AT=${p.arrivalTime}, BT=${p.originalBurstTime}, Pri=${p.priority}</span>
                 <span class="process-item-delete" data-index="${originalIndex}">&times;</span>
             `;
             item.querySelector('.process-item-delete').addEventListener('click', () => deleteProcess(originalIndex));
@@ -88,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function toggleQuantumInput() {
         const alg = algorithmSelect.value;
-        // Show if alg is 'rr' or contains 'priority-rr'
         quantumInputDiv.style.display = (alg === 'rr' || alg.includes('priority-rr')) ? 'block' : 'none';
     }
 
@@ -98,7 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Reset process states before simulation
+        // 1. Reset Logs
+        readyQueueLog = [];
+        
+        // 2. Reset process states before simulation
         processes.forEach(p => {
             p.remainingBurstTime = p.originalBurstTime;
             p.isCompleted = false;
@@ -106,11 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
             p.waitingTime = 0;
             p.turnaroundTime = 0;
             p.startTime = -1;
-            p.remainingQuantum = 0; // New
+            p.remainingQuantum = 0;
         });
         
-        // Deep copy processes for simulation
-        let simProcesses = JSON.parse(JSON.stringify(processes));
+        // 3. Deep copy processes for simulation
+        let simProcesses = structuredClone(processes);
         
         let results = [];
         let ganttData = [];
@@ -122,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
 
+        // 4. Run Simulation
         switch (selectedAlgorithm) {
             case 'fcfs':
                 [results, ganttData] = simulateNonPreemptive(simProcesses, 'fcfs');
@@ -152,39 +170,85 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
         }
         
-        // Sort results by ID for table display
+        // 5. Render Results
         results.sort((a,b) => a.id - b.id);
-
         renderGanttChart(ganttData);
         renderResultsTable(results);
+        renderReadyQueueLog(readyQueueLog);
     }
 
-    // --- ALGORITHM IMPLEMENTATIONS ---
+    // --- Ready Queue Logging ---
+    
+    function logReadyQueue(time, queue, runningProcess) {
+        if (readyQueueLog.length > 0) {
+            const lastLog = readyQueueLog[readyQueueLog.length - 1];
+            if (lastLog.time === time) {
+                 if (lastLog.runningId === 'Idle' && runningProcess) {
+                     lastLog.runningId = `P${runningProcess.id}`;
+                 }
+                 return; 
+            }
+        }
+        
+        const queueState = queue.map(p => ({ 
+            id: p.id, 
+            rem: p.remainingBurstTime.toFixed(1),
+            pri: p.priority 
+        }));
+        
+        const runningId = runningProcess ? `P${runningProcess.id}` : 'Idle';
+        
+        readyQueueLog.push({ time, queueState, runningId });
+    }
+    
+    function renderReadyQueueLog(log) {
+        readyQueueLogContainer.innerHTML = '';
+        if (log.length === 0) {
+            readyQueueLogContainer.innerHTML = '<p class="text-gray-400">No simulation data.</p>';
+            return;
+        }
 
-    /**
-     * Engine for Non-Preemptive algorithms (FCFS, SJF, Priority-NP)
-     * @param {Array} processes - The list of processes to simulate.
-     * @param {string} sortCriteria - 'fcfs', 'sjf', or 'priority'.
-     */
+        log.forEach(entry => {
+            const item = document.createElement('div');
+            item.className = 'p-3 bg-black/20 rounded-lg mb-2';
+            
+            const queueText = entry.queueState.length > 0
+                ? entry.queueState.map(p => `P${p.id} (Rem: ${p.rem})`).join(', ')
+                : 'Empty';
+            
+            item.innerHTML = `
+                <strong class="text-violet-300">Time ${entry.time}:</strong>
+                <span class="text-gray-300 ml-2">Running:</span>
+                <strong class="text-white">${entry.runningId}</strong>
+                <br>
+                <span class="text-gray-300">Ready Queue:</span>
+                <span class="text-gray-400">[${queueText}]</span>
+            `;
+            readyQueueLogContainer.appendChild(item);
+        });
+        
+        readyQueueLogContainer.scrollTop = readyQueueLogContainer.scrollHeight;
+    }
+
+    // --- ALGORITHM IMPLEMENTATIONS (with Logging) ---
+
     function simulateNonPreemptive(processes, sortCriteria) {
         let currentTime = 0;
         let ganttData = [];
         let readyQueue = [];
         let finishedProcesses = [];
-        let processIndex = 0;
         
         processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
+        let processIndex = 0;
         
         while (finishedProcesses.length < processes.length) {
-            // 1. Add processes that have arrived to the ready queue
             while (processIndex < processes.length && processes[processIndex].arrivalTime <= currentTime) {
                 readyQueue.push(processes[processIndex]);
                 processIndex++;
             }
             
-            // 2. If ready queue is empty, CPU is idle
             if (readyQueue.length === 0) {
-                // If there are still processes left to arrive, advance time
+                logReadyQueue(currentTime, readyQueue, null); 
                 if (processIndex < processes.length) {
                     const nextArrivalTime = processes[processIndex].arrivalTime;
                     if (currentTime < nextArrivalTime) {
@@ -192,21 +256,19 @@ document.addEventListener('DOMContentLoaded', () => {
                          currentTime = nextArrivalTime;
                     }
                 }
-                continue; // Loop again to add the newly arrived process
+                continue;
             }
             
-            // 3. Sort the ready queue based on the algorithm
             if (sortCriteria === 'sjf') {
                 readyQueue.sort((a, b) => a.originalBurstTime - b.originalBurstTime);
             } else if (sortCriteria === 'priority') {
                 readyQueue.sort((a, b) => a.priority - b.priority);
             }
-            // For 'fcfs', no sort is needed as arrival order is maintained.
 
-            // 4. Get next process from queue
             const process = readyQueue.shift();
             
-            // 5. Run process to completion (non-preemptive)
+            logReadyQueue(currentTime, readyQueue, process); 
+            
             const startTime = currentTime;
             process.startTime = startTime;
             process.completionTime = startTime + process.originalBurstTime;
@@ -215,143 +277,150 @@ document.addEventListener('DOMContentLoaded', () => {
             process.isCompleted = true;
             
             ganttData.push({ 
-                id: `P${process.id}`,
-                start: startTime,
-                end: process.completionTime,
+                id: `P${process.id}`, 
+                start: startTime, 
+                end: process.completionTime, 
                 duration: process.originalBurstTime
             });
 
             currentTime = process.completionTime;
             finishedProcesses.push(process);
         }
-
+        logReadyQueue(currentTime, [], null);
         return [finishedProcesses, ganttData];
     }
 
-    /**
-     * Engine for Preemptive algorithms (SRTF, Priority-P, Priority-RR-P)
-     * @param {Array} processes - The list of processes to simulate.
-     * @param {string} sortCriteria - 'srtf', 'priority', or 'priority-rr'.
-     * @param {number} [quantum] - The time quantum (only for 'priority-rr').
-     */
     function simulatePreemptive(processes, sortCriteria, quantum = Infinity) {
         let currentTime = 0;
         let ganttData = [];
         let readyQueue = [];
         let finishedProcesses = [];
-        let processIndex = 0;
-
-        processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
         
+        processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
+        let processIndex = 0;
+        
+        let currentProcess = null;
+
         while (finishedProcesses.length < processes.length) {
-            // 1. Add processes that have arrived
             while (processIndex < processes.length && processes[processIndex].arrivalTime <= currentTime) {
                 readyQueue.push(processes[processIndex]);
                 processIndex++;
             }
 
-            // 2. If ready queue is empty, handle idle time
-            if (readyQueue.length === 0) {
-                if (processIndex < processes.length) {
-                    const nextArrivalTime = processes[processIndex].arrivalTime;
-                    if (currentTime < nextArrivalTime) {
-                         ganttData.push({ id: 'Idle', start: currentTime, end: nextArrivalTime, duration: nextArrivalTime - currentTime });
-                         currentTime = nextArrivalTime;
-                    }
-                }
-                continue;
-            }
-            
-            // 3. Sort the ready queue
             if (sortCriteria === 'srtf') {
                 readyQueue.sort((a, b) => a.remainingBurstTime - b.remainingBurstTime);
             } else if (sortCriteria === 'priority' || sortCriteria === 'priority-rr') {
                 readyQueue.sort((a, b) => a.priority - b.priority);
             }
 
-            // 4. Pick the best process
-            const process = readyQueue.shift();
+            if (currentProcess) {
+                let shouldPreempt = false;
+                if (readyQueue.length > 0) {
+                    if (sortCriteria === 'srtf' && readyQueue[0].remainingBurstTime < currentProcess.remainingBurstTime) {
+                        shouldPreempt = true;
+                    } else if ((sortCriteria === 'priority' || sortCriteria === 'priority-rr') && readyQueue[0].priority < currentProcess.priority) {
+                        shouldPreempt = true;
+                    }
+                }
+                
+                if (sortCriteria === 'priority-rr' && currentProcess.remainingQuantum <= 0) {
+                    shouldPreempt = true;
+                }
+
+                if (shouldPreempt) {
+                    if (sortCriteria === 'priority-rr') {
+                        currentProcess.remainingQuantum = 0; 
+                    }
+                    readyQueue.push(currentProcess);
+                    currentProcess = null;
+                }
+            }
             
-            // 5. For Priority-RR, reset quantum if it's a new process or quantum expired
-            if (sortCriteria === 'priority-rr' && process.remainingQuantum <= 0) {
-                process.remainingQuantum = quantum;
+            if (!currentProcess && readyQueue.length > 0) {
+                currentProcess = readyQueue.shift();
+                if (sortCriteria === 'priority-rr' && currentProcess.remainingQuantum <= 0) {
+                    currentProcess.remainingQuantum = quantum;
+                }
+            }
+            
+            logReadyQueue(currentTime, readyQueue, currentProcess);
+
+            if (!currentProcess) {
+                if (processIndex < processes.length) {
+                    const nextArrivalTime = processes[processIndex].arrivalTime;
+                    if (currentTime < nextArrivalTime) {
+                         ganttData.push({ id: 'Idle', start: currentTime, end: nextArrivalTime, duration: nextArrivalTime - currentTime });
+                         currentTime = nextArrivalTime;
+                    }
+                }
+                continue;
             }
 
-            // 6. Determine how long this process can run
-            const timeToCompletion = process.remainingBurstTime;
+            const timeToCompletion = currentProcess.remainingBurstTime;
             const timeToNextArrival = (processIndex < processes.length) ? (processes[processIndex].arrivalTime - currentTime) : Infinity;
             
             let timeToRun;
             if (sortCriteria === 'priority-rr') {
-                const timeToQuantumEnd = process.remainingQuantum;
+                const timeToQuantumEnd = currentProcess.remainingQuantum;
                 timeToRun = Math.min(timeToCompletion, timeToNextArrival, timeToQuantumEnd);
             } else {
                 timeToRun = Math.min(timeToCompletion, timeToNextArrival);
             }
-
-            // Ensure we make progress if events happen at the same time
-            if (timeToRun === 0) {
-                 if(timeToNextArrival === 0) continue; // Let new arrival be processed
-                 timeToRun = 1; // Failsafe for simultaneous completion/arrival
-                 if (timeToRun > timeToCompletion) timeToRun = timeToCompletion;
+            
+            if (timeToRun === 0 && timeToCompletion > 0 && timeToNextArrival > 0) {
+                 timeToRun = 1;
+            }
+            if (timeToNextArrival === 0 && processIndex < processes.length) {
+                 continue;
             }
 
+            timeToRun = Math.max(0, timeToRun);
 
-            // 7. Execute the process
-            ganttData.push({
-                id: `P${process.id}`,
-                start: currentTime,
-                end: currentTime + timeToRun,
-                duration: timeToRun
-            });
+            if (timeToRun > 0) {
+                ganttData.push({
+                    id: `P${currentProcess.id}`,
+                    start: currentTime,
+                    end: currentTime + timeToRun,
+                    duration: timeToRun
+                });
 
-            process.remainingBurstTime -= timeToRun;
-            if (sortCriteria === 'priority-rr') {
-                process.remainingQuantum -= timeToRun;
+                currentProcess.remainingBurstTime -= timeToRun;
+                if (sortCriteria === 'priority-rr') {
+                    currentProcess.remainingQuantum -= timeToRun;
+                }
+                currentTime += timeToRun;
             }
-            currentTime += timeToRun;
 
-            // 8. Check if process finished or needs to be re-queued
-            if (process.remainingBurstTime === 0) {
-                process.isCompleted = true;
-                process.completionTime = currentTime;
-                process.turnaroundTime = process.completionTime - process.arrivalTime;
-                process.waitingTime = process.turnaroundTime - process.originalBurstTime;
-                finishedProcesses.push(process);
-            } else {
-                // Not finished, add back to ready queue
-                readyQueue.push(process);
+            if (currentProcess.remainingBurstTime === 0) {
+                currentProcess.isCompleted = true;
+                currentProcess.completionTime = currentTime;
+                currentProcess.turnaroundTime = currentProcess.completionTime - currentProcess.arrivalTime;
+                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.originalBurstTime;
+                finishedProcesses.push(currentProcess);
+                currentProcess = null;
             }
         }
-        
+        logReadyQueue(currentTime, [], null);
         return [finishedProcesses, ganttData];
     }
 
-
-    /**
-     * Engine for Round Robin algorithms (Standard RR, Priority-RR-NP)
-     * @param {Array} processes - The list of processes to simulate.
-     * @param {number} quantum - The time quantum.
-     * @param {string} sortCriteria - 'rr' or 'priority-rr'.
-     */
     function simulateRoundRobin(processes, quantum, sortCriteria) {
         let currentTime = 0;
         let ganttData = [];
         let readyQueue = [];
         let finishedProcesses = [];
-        let processIndex = 0;
         
         processes.sort((a, b) => a.arrivalTime - b.arrivalTime);
+        let processIndex = 0;
         
         while (finishedProcesses.length < processes.length) {
-            // 1. Add processes that have arrived
             while (processIndex < processes.length && processes[processIndex].arrivalTime <= currentTime) {
                 readyQueue.push(processes[processIndex]);
                 processIndex++;
             }
             
-            // 2. If ready queue is empty, handle idle time
             if (readyQueue.length === 0) {
+                logReadyQueue(currentTime, readyQueue, null);
                 if (processIndex < processes.length) {
                     const nextArrivalTime = processes[processIndex].arrivalTime;
                     if (currentTime < nextArrivalTime) {
@@ -362,15 +431,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 continue;
             }
             
-            // 3. Sort the ready queue if it's Priority-RR
             if (sortCriteria === 'priority-rr') {
                  readyQueue.sort((a, b) => a.priority - b.priority);
             }
 
-            // 4. Get next process from queue
             const process = readyQueue.shift();
 
-            // 5. Run process for quantum or remaining time
+            logReadyQueue(currentTime, readyQueue, process);
+
             const timeToRun = Math.min(quantum, process.remainingBurstTime);
             
             ganttData.push({
@@ -383,15 +451,11 @@ document.addEventListener('DOMContentLoaded', () => {
             process.remainingBurstTime -= timeToRun;
             currentTime += timeToRun;
             
-            // 6. Add any newly arrived processes during this run
-            // This is the key difference from the "preemptive" engine:
-            // new arrivals wait until the quantum is finished.
             while (processIndex < processes.length && processes[processIndex].arrivalTime <= currentTime) {
                 readyQueue.push(processes[processIndex]);
                 processIndex++;
             }
             
-            // 7. Check if process finished or needs to be re-queued
             if (process.remainingBurstTime === 0) {
                 process.isCompleted = true;
                 process.completionTime = currentTime;
@@ -399,28 +463,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 process.waitingTime = process.turnaroundTime - process.originalBurstTime;
                 finishedProcesses.push(process);
             } else {
-                // Not finished, add back to end of queue
                 readyQueue.push(process);
             }
         }
-        
+        logReadyQueue(currentTime, [], null);
         return [finishedProcesses, ganttData];
     }
 
-
-    // --- Rendering Functions ---
+    // --- Rendering Functions (Updated) ---
     function renderGanttChart(ganttData) {
         ganttChartDiv.innerHTML = '';
         ganttAxisDiv.innerHTML = '';
 
         if (ganttData.length === 0) return;
         
-        // Merge consecutive blocks of the same process
         const mergedGantt = [];
         if (ganttData.length > 0) {
             let lastSegment = { ...ganttData[0] };
             for (let i = 1; i < ganttData.length; i++) {
-                if (ganttData[i].id === lastSegment.id) {
+                if (ganttData[i].id === lastSegment.id && ganttData[i].start === lastSegment.end) {
                     lastSegment.end = ganttData[i].end;
                     lastSegment.duration += ganttData[i].duration;
                 } else {
@@ -432,13 +493,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const totalDuration = mergedGantt[mergedGantt.length - 1].end;
-        const totalWidth = Math.max(totalDuration * TIME_SCALE, 500); // Min width
+        const totalWidth = Math.max(totalDuration * TIME_SCALE, 500);
         ganttChartDiv.style.width = totalWidth + 'px';
         ganttAxisDiv.style.width = totalWidth + 'px';
 
         let lastTime = 0;
 
-        // Add 0-mark
         const zeroMark = document.createElement('span');
         zeroMark.className = 'gantt-time-mark';
         zeroMark.style.left = '0px';
@@ -452,20 +512,17 @@ document.addEventListener('DOMContentLoaded', () => {
             block.textContent = segment.id;
             
             if (segment.id === 'Idle') {
-                block.style.backgroundColor = '#E0E0E0';
-                block.style.color = '#777';
+                block.style.backgroundColor = '#4b5563';
+                block.style.color = '#e5e7eb';
             } else {
-                // Find original process to get color
                 const p = processes.find(proc => `P${proc.id}` === segment.id);
                 block.style.backgroundColor = p ? p.color : '#AAAAAA';
             }
             ganttChartDiv.appendChild(block);
             
-            // Add time mark
             if (segment.end !== lastTime) {
                 const mark = document.createElement('span');
                 mark.className = 'gantt-time-mark';
-                // Position mark at the end of the block
                 mark.style.left = (segment.end * TIME_SCALE) + 'px'; 
                 mark.textContent = segment.end;
                 ganttAxisDiv.appendChild(mark);
@@ -476,45 +533,52 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function renderResultsTable(results) {
         resultsTableBody.innerHTML = '';
+        avgMetricsDiv.innerHTML = ''; // Clear averages
 
-        if (results.length === 0) return;
+        if (results.length === 0) {
+             resultsTableBody.innerHTML = '<tr><td colspan="7" class="p-3 text-center text-gray-400">No data to display.</td></tr>';
+             return;
+        }
 
         let totalWT = 0;
         let totalTAT = 0;
 
-        results.forEach(p => {
+        results.forEach(p_orig => {
+            const p = processes.find(proc => proc.id === p_orig.id); 
             const row = resultsTableBody.insertRow();
-            row.insertCell().textContent = `P${p.id}`;
-            row.insertCell().textContent = p.arrivalTime;
-            row.insertCell().textContent = p.originalBurstTime;
-            row.insertCell().textContent = p.priority; // New
-            row.insertCell().textContent = p.completionTime.toFixed(2);
-            row.insertCell().textContent = p.waitingTime.toFixed(2);
-            row.insertCell().textContent = p.turnaroundTime.toFixed(2);
+            row.className = 'hover:bg-gray-700/50';
+            row.innerHTML = `
+                <td class="p-3"><span class="font-semibold" style="color: ${p.color};">P${p.id}</span></td>
+                <td class="p-3">${p.arrivalTime}</td>
+                <td class="p-3">${p.originalBurstTime}</td>
+                <td class="p-3">${p.priority}</td>
+                <td class="p-3">${p_orig.completionTime.toFixed(2)}</td>
+                <td class="p-3">${p_orig.waitingTime.toFixed(2)}</td>
+                <td class="p-3">${p_orig.turnaroundTime.toFixed(2)}</td>
+            `;
             
-            totalWT += p.waitingTime;
-            totalTAT += p.turnaroundTime;
+            totalWT += p_orig.waitingTime;
+            totalTAT += p_orig.turnaroundTime;
         });
         
         const avgWT = totalWT / results.length;
         const avgTAT = totalTAT / results.length;
 
         avgMetricsDiv.innerHTML = `
-            <p>Average Waiting Time (AWT): <strong>${avgWT.toFixed(2)}</strong></p>
-            <p>Average Turnaround Time (ATAT): <strong>${avgTAT.toFixed(2)}</strong></p>
+            <p>Avg. Waiting Time: <strong class="text-white">${avgWT.toFixed(2)}</strong></p>
+            <p>Avg. Turnaround Time: <strong class="text-white">${avgTAT.toFixed(2)}</strong></p>
         `;
     }
     
     function getRandomColor() {
-        // Generate softer pastel colors
-        return "hsl(" + (Math.random() * 360) + ", 70%, 80%)";
+        // Generate more vibrant, light pastel colors for dark mode
+        return "hsl(" + (Math.random() * 360) + ", 90%, 75%)";
     }
     
-    // Initial setup
+    // --- Initial setup ---
+    // Start with a clean slate, no predefined processes
     toggleQuantumInput();
-    // Add one default process to start
-    arrivalInput.value = "0";
-    burstInput.value = "5";
-    priorityInput.value = "1";
-    addProcess(); 
+    renderProcessList();
+    renderResultsTable([]);
+    renderReadyQueueLog([]);
 });
