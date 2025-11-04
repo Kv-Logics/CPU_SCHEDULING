@@ -4,126 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPU Scheduling Simulator</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
-    
     <link href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💻</text></svg>" rel="icon">
 </head>
 <body class="min-h-screen p-4 sm:p-8">
-
     <div class="max-w-7xl mx-auto">
         <h1 class="text-3xl sm:text-4xl font-bold text-center text-white mb-8 shadow-sm">
-            CPU Scheduling Simulator
+            💻 CPU Scheduling Simulator
         </h1>
-
+        
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-
+            <!-- Left Section: Process Input -->
             <section class="lg:col-span-2 glass-card p-6">
                 <h2 class="text-2xl font-semibold text-white mb-5">1. Add Processes</h2>
                 
-                <div id="process-list" class="mb-4 max-h-48 overflow-y-auto pr-2">
-                    </div>
+                <div id="process-list" class="mb-4 max-h-48 overflow-y-auto pr-2"></div>
                 
                 <div class="add-process-form grid grid-cols-2 gap-4">
                     <div>
-                        <label for="arrival-time-input" class="block text-sm font-medium text-gray-300 mb-1">Arrival Time</label>
-                        <input type="number" id="arrival-time-input" value="0" min="0" class="glass-input">
+                        <label for="arrival-time-input" class="block mb-2 text-sm font-medium">Arrival Time</label>
+                        <input type="number" id="arrival-time-input" class="glass-input" placeholder="0" min="0">
                     </div>
                     <div>
-                        <label for="burst-time-input" class="block text-sm font-medium text-gray-300 mb-1">Burst Time</label>
-                        <input type="number" id="burst-time-input" value="5" min="1" class="glass-input">
+                        <label for="burst-time-input" class="block mb-2 text-sm font-medium">Burst Time</label>
+                        <input type="number" id="burst-time-input" class="glass-input" placeholder="1" min="1">
                     </div>
                     <div class="col-span-2">
-                        <label for="priority-input" class="block text-sm font-medium text-gray-300 mb-1">Priority</label>
-                        <input type="number" id="priority-input" value="1" min="0" class="glass-input">
-                    </div>
-                    <div class="col-span-2">
-                        <button id="add-process-btn" class="glass-button w-full">Add Process</button>
+                        <label for="priority-input" class="block mb-2 text-sm font-medium">Priority <span class="text-gray-400 text-xs">(Lower = Higher Priority)</span></label>
+                        <input type="number" id="priority-input" class="glass-input" placeholder="0" min="0">
                     </div>
                 </div>
+                
+                <button id="add-process-btn" class="btn-primary mt-4 w-full">
+                    Add Process
+                </button>
 
-                <hr class="border-gray-600 my-6">
+                <h2 class="text-2xl font-semibold text-white mt-8 mb-5">2. Select Algorithm</h2>
+                
+                <label for="algorithm-select" class="block mb-2 text-sm font-medium">Algorithm</label>
+                <select id="algorithm-select" class="glass-select mb-4">
+                    <option value="fcfs">First-Come, First-Served (FCFS)</option>
+                    <option value="sjf">Shortest Job First (SJF) (Non-Preemptive)</option>
+                    <option value="srtf">Shortest Remaining Time First (SRTF) (Preemptive)</option>
+                    <option value="priority">Priority (Non-Preemptive)</option>
+                    <option value="priority-preemptive">Priority (Preemptive)</option>
+                    <option value="rr">Round Robin (RR)</option>
+                    <option value="priority-rr">Priority + RR (Non-Preemptive)</option>
+                    <option value="priority-rr-preemptive">Priority + RR (Preemptive)</option>
+                </select>
 
-                <h2 class="text-2xl font-semibold text-white mb-5">2. Select Algorithm</h2>
-                <div class="algorithm-select-form space-y-4">
-                    <div>
-                        <label for="algorithm-select" class="block text-sm font-medium text-gray-300 mb-1">Algorithm</label>
-                        <select id="algorithm-select" class="glass-input glass-select">
-                            <option value="fcfs">First-Come, First-Served (FCFS)</option>
-                            <option value="sjf-nonpreemptive">Shortest Job First (SJF) (Non-Preemptive)</option>
-                            <option value="srtf-preemptive">Shortest Remaining Time First (SRTF) (Preemptive)</option>
-                            <option value="priority-nonpreemptive">Priority (Non-Preemptive)</option>
-                            <option value="priority-preemptive">Priority (Preemptive)</option>
-                            <option value="rr">Round Robin (RR)</option>
-                            <option value="priority-rr-nonpreemptive">Priority + RR (Non-Preemptive)</option>
-                            <option value="priority-rr-preemptive">Priority + RR (Preemptive)</option>
-                        </select>
-                    </div>
-                    
-                    <div id="rr-quantum-input" style="display:none;">
-                        <label for="time-quantum-input" class="block text-sm font-medium text-gray-300 mb-1">Time Quantum</label>
-                        <input type="number" id="time-quantum-input" value="2" min="1" class="glass-input">
-                    </div>
+                <div id="rr-quantum-input" class="hidden">
+                    <label for="time-quantum-input" class="block mb-2 text-sm font-medium">Time Quantum</label>
+                    <input type="number" id="time-quantum-input" class="glass-input" placeholder="2" min="1">
                 </div>
 
-                <hr class="border-gray-600 my-6">
-
-                <button id="simulate-btn" class="glass-button glass-button-green w-full text-lg">
+                <button id="simulate-btn" class="btn-secondary mt-4 w-full">
                     Run Simulation
                 </button>
             </section>
 
-            <section class="lg:col-span-3 glass-card p-6 space-y-6">
-                
-                <div>
-                    <h2 class="text-2xl font-semibold text-white mb-4">Gantt Chart</h2>
-                    <div id="gantt-chart-container" class="w-full overflow-x-auto rounded-lg p-4 min-h-[80px]">
-                        
-                        <div id="gantt-chart" class="relative flex flex-row">
-                            </div>
-                        <div id="gantt-axis" class="relative h-5 mt-1">
-                            </div>
-                    </div>
-                </div>
-                
-                <div>
-                    <h2 class="text-2xl font-semibold text-white mb-4">Ready Queue Log</h2>
-                    <div id="ready-queue-log-container" class="w-full rounded-lg p-4 max-h-60 overflow-y-auto text-sm">
-                        <p class="text-gray-400">Run a simulation to see the Ready Queue state over time.</p>
-                        </div>
+            <!-- Right Section: Results -->
+            <section class="lg:col-span-3 space-y-8">
+                <!-- Gantt Chart -->
+                <div class="glass-card p-6">
+                    <h2 class="text-2xl font-semibold text-white mb-5">Gantt Chart</h2>
+                    <div id="gantt-chart" class="gantt-container relative overflow-x-auto"></div>
+                    <div id="gantt-axis" class="gantt-axis relative overflow-x-auto mt-2"></div>
                 </div>
 
-                <div>
-                    <h2 class="text-2xl font-semibold text-white mb-4">Results Table</h2>
-                    <div class="w-full overflow-x-auto">
-                        <table id="results-table" class="w-full min-w-max text-left">
-                            <thead class="border-b border-gray-600">
+                <!-- Ready Queue Log -->
+                <div class="glass-card p-6">
+                    <h2 class="text-2xl font-semibold text-white mb-5">Ready Queue Log</h2>
+                    <div id="ready-queue-log-container" class="text-gray-300">
+                        Run a simulation to see the Ready Queue state over time.
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="glass-card p-6">
+                    <h2 class="text-2xl font-semibold text-white mb-5">Results Table</h2>
+                    <div class="overflow-x-auto">
+                        <table id="results-table" class="results-table w-full">
+                            <thead>
                                 <tr>
-                                    <th class="p-3">Process</th>
-                                    <th class="p-3">Arrival (AT)</th>
-                                    <th class="p-3">Burst (BT)</th>
-                                    <th class="p-3">Priority</th>
-                                    <th class="p-3">Completion (CT)</th>
-                                    <th class="p-3">Waiting (WT)</th>
-                                    <th class="p-3">Turnaround (TAT)</th>
+                                    <th>Process</th>
+                                    <th>Arrival (AT)</th>
+                                    <th>Burst (BT)</th>
+                                    <th>Priority</th>
+                                    <th>Completion (CT)</th>
+                                    <th>Waiting (WT)</th>
+                                    <th>Turnaround (TAT)</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-700">
-                                </tbody>
+                            <tbody></tbody>
                         </table>
                     </div>
-                    
-                    <div id="average-metrics" class="mt-4 text-right text-lg font-medium space-y-1">
-                        </div>
+                    <div id="average-metrics" class="mt-6"></div>
                 </div>
             </section>
         </div>
+
+        <!-- Footer with Student Names -->
+        <footer class="glass-card p-6 mt-8 text-center">
+            <h3 class="text-lg font-semibold text-white mb-3">Project Team</h3>
+            <div class="flex flex-wrap justify-center gap-4 text-gray-300">
+                <span class="px-4 py-2 bg-white bg-opacity-10 rounded-lg">CB.EN.U4CCE24113</span>
+                <span class="px-4 py-2 bg-white bg-opacity-10 rounded-lg">CB.EN.U4CCE24124</span>
+                <span class="px-4 py-2 bg-white bg-opacity-10 rounded-lg">CB.EN.U4CCE24130</span>
+                <span class="px-4 py-2 bg-white bg-opacity-10 rounded-lg">CB.EN.U4CCE24156</span>
+                <span class="px-4 py-2 bg-white bg-opacity-10 rounded-lg">CB.EN.U4CCE24161</span>
+            </div>
+        </footer>
     </div>
 
     <script src="script.js"></script>
